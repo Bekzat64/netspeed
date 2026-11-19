@@ -57,7 +57,9 @@ def measure_once(client: httpx.Client, url: str, index: int) -> RequestResult:
             ttfb_s = time.perf_counter() - t0
             if not response.is_success:
                 return RequestResult(
-                    index, ok=False, status=response.status_code,
+                    index,
+                    ok=False,
+                    status=response.status_code,
                     error=f"HTTP {response.status_code}",
                 )
             size_bytes = 0
@@ -66,12 +68,17 @@ def measure_once(client: httpx.Client, url: str, index: int) -> RequestResult:
                 size_bytes += len(chunk)
             duration_s = time.perf_counter() - t0
             return RequestResult(
-                index, ok=True, status=response.status_code, size_bytes=size_bytes,
-                duration_s=duration_s, ttfb_s=ttfb_s,
+                index,
+                ok=True,
+                status=response.status_code,
+                size_bytes=size_bytes,
+                duration_s=duration_s,
+                ttfb_s=ttfb_s,
             )
     except httpx.TimeoutException:
         # httpx timeouts apply to each network operation, not to the whole request.
-        return RequestResult(index, ok=False, error=f"timeout: no data for {client.timeout.read:g} s")
+        timeout_s = client.timeout.read
+        return RequestResult(index, ok=False, error=f"timeout: no data for {timeout_s:g} s")
     except httpx.HTTPError as exc:
         return RequestResult(index, ok=False, error=f"{type(exc).__name__}: {exc}")
 
@@ -131,21 +138,25 @@ def format_summary(summary: Summary | None, attempted: int) -> str:
     if summary is None:
         return f"Successful:        0/{attempted}\nNo successful requests."
     s = summary
-    return "\n".join([
-        f"Successful:        {s.succeeded}/{attempted}",
-        f"Downloaded:        {s.total_bytes / BYTES_PER_MB:.2f} MB ({s.total_bytes:,} bytes)",
-        f"Avg request time:  {s.mean_s:.3f} s "
-        f"(min {s.min_s:.3f} / median {s.median_s:.3f} / max {s.max_s:.3f})",
-        f"Avg TTFB:          {s.mean_ttfb_s:.3f} s",
-        f"Download speed:    {s.speed_mbit_s:.1f} Mbit/s ({s.speed_mb_s:.2f} MB/s)",
-    ])
+    return "\n".join(
+        [
+            f"Successful:        {s.succeeded}/{attempted}",
+            f"Downloaded:        {s.total_bytes / BYTES_PER_MB:.2f} MB ({s.total_bytes:,} bytes)",
+            f"Avg request time:  {s.mean_s:.3f} s "
+            f"(min {s.min_s:.3f} / median {s.median_s:.3f} / max {s.max_s:.3f})",
+            f"Avg TTFB:          {s.mean_ttfb_s:.3f} s",
+            f"Download speed:    {s.speed_mbit_s:.1f} Mbit/s ({s.speed_mb_s:.2f} MB/s)",
+        ]
+    )
 
 
 def http_url(value: str) -> str:
     """argparse type: accept only http(s) URLs that have a host."""
     parts = urlsplit(value)
     if parts.scheme not in ("http", "https") or not parts.hostname:
-        raise argparse.ArgumentTypeError(f"expected an http:// or https:// URL with a host, got {value!r}")
+        raise argparse.ArgumentTypeError(
+            f"expected an http:// or https:// URL with a host, got {value!r}"
+        )
     return value
 
 
@@ -170,11 +181,16 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Measure download speed of a URL.")
     parser.add_argument("url", type=http_url, help="http(s) URL to download, e.g. a large file")
     parser.add_argument(
-        "-n", "--requests", type=positive_int, default=10,
+        "-n",
+        "--requests",
+        type=positive_int,
+        default=10,
         help="number of sequential requests (default: 10)",
     )
     parser.add_argument(
-        "--timeout", type=positive_float, default=30.0,
+        "--timeout",
+        type=positive_float,
+        default=30.0,
         help="max seconds to wait for each network operation (connect, read, write); "
         "not a limit on the total request time (default: 30)",
     )
